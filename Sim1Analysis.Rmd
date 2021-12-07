@@ -1,0 +1,184 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+sim <- 1
+
+filename <- paste0(
+  'Spatial_Pandemic Sim',
+  sim,
+  '-table.csv'
+)
+```
+
+```{r}
+raw_data <-
+  read_csv(filename,skip=6) %>% 
+  rename(
+    run_number = `[run number]`,
+    step = `[step]`
+  ) %>% 
+  dplyr::arrange(
+    run_number,
+    step
+  ) %>%
+  select(-c(
+    max_memory,
+    awareness,
+    fear_strength,
+    transmissibility,
+    removal,
+    `fear?`,
+    radius,
+    information,
+    population,
+    memory_distribution,
+    walk_length
+  ))
+
+raw_data
+```
+
+
+```{r}
+converged_data <-
+  raw_data %>% 
+  group_by(run_number) %>% 
+  filter(step == max(step)) %>% 
+  ungroup
+
+converged_data
+```
+
+```{r}
+runs <-
+  raw_data %>% 
+  pivot_longer(
+    cols = c(s_count,i_count,r_count,incidences),
+  ) %>% 
+  arrange(desc(name))
+
+runs
+```
+
+```{r}
+fig0 <-
+  ggplot(
+  data = converged_data,
+  mapping = aes(
+    x = s_count
+  ) 
+) +
+  geom_histogram(
+    bins = 50,
+    fill = 'darkslategray3',color='black'
+    ) +
+  labs(
+    title = paste0('Figure ',sim,'.0'),
+    subtitle = 'Endpoint Distribution',
+    caption = 'Self-isolation helps mitigate the epidemic.'
+  ) +
+  scale_x_continuous(
+    name = '% Susceptible by Convergence'
+  ) 
+
+fig0
+```
+
+
+```{r}
+ggsave(
+  filename = paste0('Fig ',sim,'0.svg'),
+  plot=fig0,
+  device = 'svg',
+  width = 3.9,
+  height=2.4,
+  units='in'
+  )
+```
+
+
+```{r}
+fig1 <-
+  ggplot(
+  data = filter(runs,name != 'incidences',run_number <= 100,step<=500),
+  mapping = aes(
+    x = step,
+    y = value,
+    color = name,
+    group = interaction(run_number,name)
+  )
+) + 
+  geom_line(alpha = .05) +
+  scale_color_manual(
+    values = c('red','blue','green'),
+    labels = c('Infectious','Recovered','Susceptible')
+  ) +
+  labs(
+    title = paste0('Figure ',sim,'.1'),
+    subtitle = 'Compartmental Dynamics',
+    caption = 'Feedback drives the system to a linear regime.'
+  ) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  theme(legend.position = 'left')
+
+fig1
+```
+```{r}
+ggsave(
+  filename = paste0('Fig ',sim,'1.svg'),
+  plot=fig1,
+  device = 'svg',
+  width = 3.9,
+  height=2.4,
+  units='in'
+  )
+```
+
+
+```{r}
+fig2 <-
+  ggplot(
+  data = filter(
+    runs,
+    name == 'incidences',
+    run_number == 1,
+    step <= 500
+    ),
+  mapping = aes(
+    x = step,
+    y = value,
+    group = run_number
+  )
+) + 
+  geom_smooth(color = 'black',method = 'gam',se=0) +
+  geom_point(alpha = .25) +
+  labs(
+    title = paste0('Figure ',sim,'.2'),
+    subtitle = 'Incidence Curve',
+    caption = 'Linear regimes correspond to a "flat curve."'
+  ) +
+  scale_y_continuous(name = 'Incidences') 
+
+fig2
+```
+
+
+
+```{r}
+ggsave(
+  filename = paste0('Fig ',sim,'2.svg'),
+  plot=fig2,
+  device = 'svg',
+  width = 3.9,
+  height=2.4,
+  units='in'
+  )
+```
